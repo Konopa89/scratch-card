@@ -25,11 +25,11 @@ class ScratchCard extends HTMLElement {
     addEventListener('mouseup', (ev) => this.stopDrawing(ev));
 
     window.addEventListener("deviceorientation", (event) => {
-      console.log("TADAAAA!")
-      let multiplikator = 5.6;
-      this.gyro.x += event.alpha * multiplikator;
-      this.gyro.y += event.beta  * multiplikator;
-      this.gyro.dx += event.gamma  * multiplikator;
+      let multiplikator = 1;
+      
+      this.gyro.x  = event.alpha * multiplikator;
+      this.gyro.y  = event.beta  * multiplikator;
+      this.gyro.dx = event.gamma * multiplikator;
       this.#shine(this.gyro.x, this.gyro.y, this.gyro.dx, this.gyro.dy);
 
     })
