@@ -3,11 +3,11 @@ class ScratchCard extends HTMLElement {
   canvas = document.createElement("canvas");
   canvasGradiant = document.createElement("canvas")
   span = document.createElement("span");
-  style = document.createElement("style");
   gyro = { x: 0, y: 0, dx: 200, dy: 200 };
   isDrawing = false;
   ctx = this.canvas.getContext("2d", { desynchronized: true });
   ctxGradient = this.canvasGradiant.getContext("2d");
+  pointer = {x: 0, y: 0};
 
   static get observedAttributes() {
     return ['code', 'scratch-word'];
@@ -26,78 +26,107 @@ class ScratchCard extends HTMLElement {
       this.img.src = "test.png";
     })
 
-    addEventListener('mousedown', (ev) => this.startDrawing(ev));
-    addEventListener('mousemove', (ev) => this.draw(ev));
-    addEventListener('touchmove', (ev) => this.draw(ev));
-    addEventListener('mouseup', (ev) => this.stopDrawing(ev));
+    const getPoint = (e) => {
+      const bbox = this.canvas.getBoundingClientRect();
+
+      return {
+        x: e.clientX - bbox.left,
+        y: e.clientY - bbox.top
+      };
+    }
+
+    this.addEventListener('mousemove', (e) => {
+      const p = getPoint(e);
+  
+      if (e.buttons) {
+        this.draw(p.x, p.y);
+      }
+
+      Object.assign(this.pointer, p);
+    });
+
+    this.addEventListener('touchstart', (e) => {
+      
+      for (const touch of e.targetTouches) {
+        Object.assign(this.pointer, getPoint(touch));
+        break;
+      }  
+
+    });
+
+    this.addEventListener('touchmove', (e) => {
+      
+      for (const touch of e.targetTouches) {
+        const p = getPoint(touch);
+
+        this.draw(p.x, p.y);
+
+        Object.assign(this.pointer, p);
+
+        return;
+      }  
+
+    });
 
     window.addEventListener("deviceorientation", (event) => {
-      let multiplikator = 4,
-          g = Math.round((event.gamma + 180) / 10) * 10;
+      const b = Math.round(180 + event.beta) / 360,
+            g = Math.round(180 + event.gamma) / 360;
 
-      this.gyro.x  =  -g * multiplikator;
-
-      //this.gyro.y1 = -event.beta * multiplikator;
-      //this.gyro.x1 = -event.gamma * multiplikator;
-
+      this.style.setProperty('--gloss-x', ((1 - g) * 50) + '%');
+      this.style.setProperty('--gloss-y', ((1 - b) * 50) + '%');
+      
       document.querySelector('pre').textContent = JSON.stringify({
         alpha: Math.round(event.alpha),
         beta: Math.round(event.beta), 
-        gamma: Math.round(g)
+        gamma: Math.round(event.gamma)
       }, null, 2);
-     // this.gyro.y  = event.beta  * multiplikator;
-    //  this.gyro.dx = event.gamma * multiplikator;
-      this.#shine(this.gyro.x, this.gyro.y, this.gyro.dx, this.gyro.dy);
-
+      
+     // this.#shine(this.gyro.x, this.gyro.y, this.gyro.dx, this.gyro.dy);
     })
-    //this.addEventListener('mousedown', hideIt, {once: true});
 
-    this.style.innerHTML = `
-          :host {
-            display: grid;
-            place-content: center;
-            place-items: center;
-            border: solid 1px blue;
-            position: relative;
-          }
+    const style = document.createElement("style");
 
-          span {
-            text-transform: uppercase;
-            font-size: 4em;
-            letter-spacing: 0.25em;
-            pointer-events: none;
-            user-select: none;
-          }
+    style.innerHTML = `
+      :host {
+        display: grid;
+        place-content: center;
+        place-items: center;
+        border: solid 1px blue;
+        position: relative;
+        overflow: clip;
+      }
 
-          canvas {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-          }
-        `;
-    this.shadowRoot.append(this.span, this.canvas, this.style, this.canvasGradiant);
+      :host::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 45%, rgba(255,255,255,1) 55%, rgba(255,255,255,0) 100%) repeat center/contain;
+        transform: scale(2) translate(var(--gloss-x, 0), var(--gloss-y, 0));
+        mix-blend-mode: overlay;
+      }
+
+      span {
+        text-transform: uppercase;
+        font-size: 4em;
+        letter-spacing: 0.25em;
+        pointer-events: none;
+        user-select: none;
+      }
+
+      canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+    `;
+
+    this.shadowRoot.append(this.span, this.canvas, style, this.canvasGradiant);
 
     this.canvas.width = this.canvas.offsetWidth;
     this.canvas.height = this.canvas.offsetHeight;
-    this.canvasGradiant.width = this.canvasGradiant.offsetWidth;
-    this.canvasGradiant.height = this.canvasGradiant.offsetHeight;
 
-    // this.grd = this.ctx.createRadialGradient(this.canvas.width / 2, this.canvas.height / 2, 1, this.canvas.width / 2, this.canvas.height / 2, 150);
-    // this.grd.addColorStop(0, "rgb(56,56,56)");
-    // this.grd.addColorStop(1, "rgb(136,136,136)");
-    // this.ctx.fillStyle = this.grd;
-    // this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-
-    this.#shine(this.gyro.x, this.gyro.y, this.gyro.dx, this.gyro.dy);
-
-    //this.#draw();
-
-    // this.addEventListener("touchmove", (move) => {
-    //     console.log(move.targetTouches.clientX)
-
-    // })
-    // this.addEventListener("mousemove", (e) => this.#erase(e));
+    this.#foil();
   }
 
   get code() {
@@ -108,52 +137,62 @@ class ScratchCard extends HTMLElement {
     return this.getAttribute('scratch-word');
   }
 
-  draw(e) {
-    if (!this.isDrawing) return;
-
-    function changePenSize(min = 3, max = 12) {
-      return Math.floor(Math.random() * (max - min) + min);
-    }
-
-    let penSize = changePenSize();
-
-    this.ctx.lineWidth = penSize;
+  /** @param { MouseEvent } e  */
+  draw(x, y) {   
+    this.ctx.lineWidth = Math.floor(Math.random() * (7 - 4) + 4);
     this.ctx.shadowColor = "white";
-    this.ctx.shadowBlur = "5";
-    this.ctx.lineCap = 'round';
+    this.ctx.shadowBlur = "2";
 
+    const vec    = new Vec2(x -this.pointer.x, y - this.pointer.y),
+          length = vec.length();
 
-    const x = e.clientX - this.canvas.getBoundingClientRect().left;
-    const y = e.clientY - this.canvas.getBoundingClientRect().top;
-
-    if (this.isDrawing) {
-      this.ctx.lineTo(x, y);
-      this.ctx.stroke();
+    vec.normalize();
+    
+    for (let offset = 0; offset < length; offset += 5) {
+      const p = vec.multiply(offset).add(this.pointer.x, this.pointer.y);
+      
+      const r = () => (-0.5 + Math.random()) * (this.ctx.lineWidth + 15);
+    
       this.ctx.beginPath();
-      this.ctx.moveTo(x, y);
+      this.ctx.globalCompositeOperation = 'destination-out';
+
+      this.ctx.moveTo(p.x + r(), p.y + r());
+
+      for( let i = 0; i < 50; i++ ) {
+        this.ctx.lineTo(p.x + r(), p.y + r());
+      }
+      
+      this.ctx.closePath();
+      this.ctx.fill();
+    }
+  }
+
+  #foil() {
+    this.ctx.beginPath();
+    this.ctx.fillStyle = '#666';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    const image = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height),
+          r     = () => (-0.5 + Math.random()) * 15,
+          clamp = (v) => Math.min(Math.max(0, v), 255);
+
+    for (let i = 0; i < image.data.length; i += 4) {
+      const noise = r();
+
+      image.data[i]     = clamp(image.data[i] + noise);
+      image.data[i + 1] = clamp(image.data[i + 1] + noise);
+      image.data[i + 2] = clamp(image.data[i + 2] + noise);
     }
 
-    this.ctx.globalCompositeOperation = 'destination-out';
-    this.ctx.drawImage(this.img, 0, 0, this.canvasGradiant.width, this.canvasGradiant.height)
+    this.ctx.putImageData(image, 0, 0);
 
-
-  }
-
-  startDrawing(e) {
-    this.isDrawing = true;
-    this.ctx.globalCompositeOperation = 'destination-out';
-    this.draw(e);
-  }
-  stopDrawing() {
-    this.isDrawing = false;
-    this.ctx.globalCompositeOperation = 'source-over';
-    this.ctx.beginPath();
+    this.ctx.closePath();
   }
 
   #shine(x, y, dx, dy) {
     const gradient  = this.ctx.createLinearGradient(-this.canvas.width * 3, 0 , x + this.canvas.width * 3, this.canvas.height * 5),
           gradient2 = this.ctx.createLinearGradient(0, 0, this.canvas.width, this.canvas.height);
-    
+
     const stops = 100;
 
     for (let i = 0; i < stops; i++) {
@@ -179,3 +218,33 @@ class ScratchCard extends HTMLElement {
 }
 
 customElements.define('scratch-card', ScratchCard);
+
+
+class Vec2 {
+  x = 0;
+  y = 0;
+
+  constructor(x,y) {
+    this.x = x;
+    this.y = y;
+  }
+
+  length() {
+    return Math.sqrt(this.x * this.x + this.y * this.y);
+  }
+
+  normalize() {
+    const len = this.length();
+
+    this.x /= len;
+    this.y /= len;
+  }
+
+  multiply(fac) {
+    return new Vec2(this.x * fac, this.y * fac);
+  }
+
+  add(x, y) {
+    return new Vec2(this.x + x, this.y + y);
+  }
+}
