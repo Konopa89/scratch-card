@@ -5,12 +5,12 @@ class ScratchCard extends HTMLElement {
   span = document.createElement("span");
   gyro = { x: 0, y: 0, dx: 200, dy: 200 };
   isDrawing = false;
-  ctx = this.canvas.getContext("2d", { desynchronized: true });
+  ctx = this.canvas.getContext("2d", { willReadFrequently: true });
   ctxGradient = this.canvasGradiant.getContext("2d");
   pointer = {x: 0, y: 0};
 
   static get observedAttributes() {
-    return ['code', 'scratch-word'];
+    return ['code', 'scratch-word', 'scratch-size'];
   }
 
   attributeChangedCallback() {
@@ -52,6 +52,8 @@ class ScratchCard extends HTMLElement {
         break;
       }  
 
+      e.preventDefault();
+      e.stopPropagation();
     });
 
     this.addEventListener('touchmove', (e) => {
@@ -63,8 +65,11 @@ class ScratchCard extends HTMLElement {
 
         Object.assign(this.pointer, p);
 
-        return;
+        break;
       }  
+
+      e.preventDefault();
+      e.stopPropagation();
 
     });
 
@@ -75,18 +80,10 @@ class ScratchCard extends HTMLElement {
         display: grid;
         place-content: center;
         place-items: center;
-        border: solid 1px blue;
         position: relative;
         overflow: clip;
-      }
-
-      :host::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: radial-gradient(circle, rgba(255,255,255,0) 0%, rgba(255,255,255,0.75) 50%, rgba(255,255,255,0) 100%) repeat center/contain;
-        mix-blend-mode: overlay;
-        animation: gloss 20s infinite;
+        isolation: isolate;
+        background: white;
       }
 
       @keyframes gloss {
@@ -97,7 +94,8 @@ class ScratchCard extends HTMLElement {
 
       span {
         text-transform: uppercase;
-        font-size: 4em;
+        font-size: 2em;
+        font-weight: bold;
         letter-spacing: 0.25em;
         pointer-events: none;
         user-select: none;
@@ -111,7 +109,7 @@ class ScratchCard extends HTMLElement {
       }
     `;
 
-    this.shadowRoot.append(this.span, this.canvas, style, this.canvasGradiant);
+    this.shadowRoot.append(this.span, this.canvas, style);
 
     this.canvas.width = this.canvas.offsetWidth;
     this.canvas.height = this.canvas.offsetHeight;
@@ -131,11 +129,11 @@ class ScratchCard extends HTMLElement {
     return this.getAttribute('scratch-size') ?? 2;
   }
 
-  /** @param { MouseEvent } e  */
   draw(x, y) {   
-    this.ctx.lineWidth = Math.floor(Math.random() * ((this.scratchSize + 1) - (this.scratchSize - 1)) + (this.scratchSize - 1));
-    this.ctx.shadowColor = "white";
-    this.ctx.shadowBlur = "2";
+    this.ctx.lineWidth   = Math.floor(Math.random() * ((this.scratchSize + 1) - (this.scratchSize - 1)) + (this.scratchSize - 1));
+    this.ctx.shadowColor = 'white';
+    this.ctx.fillStyle   = 'white';
+    this.ctx.shadowBlur  = '1';
 
     const vec    = new Vec2(x -this.pointer.x, y - this.pointer.y),
           length = vec.length();
@@ -163,11 +161,12 @@ class ScratchCard extends HTMLElement {
 
   #foil() {
     this.ctx.beginPath();
-    this.ctx.fillStyle = '#666';
+    this.ctx.fillStyle = '#BBB';
+    ;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     
     const image = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height),
-          r     = () => (-0.5 + Math.random()) * 15,
+          r     = () => (-0.5 + Math.random()) * 20,
           clamp = (v) => Math.min(Math.max(0, v), 255);
 
     for (let i = 0; i < image.data.length; i += 4) {
@@ -179,7 +178,6 @@ class ScratchCard extends HTMLElement {
     }
 
     this.ctx.putImageData(image, 0, 0);
-
     this.ctx.closePath();
   }
 
