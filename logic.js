@@ -68,22 +68,6 @@ class ScratchCard extends HTMLElement {
 
     });
 
-    window.addEventListener("deviceorientation", (event) => {
-      const b = Math.round(180 + event.beta) / 360,
-            g = Math.round(180 + event.gamma) / 360;
-
-      this.style.setProperty('--gloss-x', ((1 - g) * 50) + '%');
-      this.style.setProperty('--gloss-y', ((1 - b) * 50) + '%');
-      
-      document.querySelector('pre').textContent = JSON.stringify({
-        alpha: Math.round(event.alpha),
-        beta: Math.round(event.beta), 
-        gamma: Math.round(event.gamma)
-      }, null, 2);
-      
-     // this.#shine(this.gyro.x, this.gyro.y, this.gyro.dx, this.gyro.dy);
-    })
-
     const style = document.createElement("style");
 
     style.innerHTML = `
@@ -100,9 +84,15 @@ class ScratchCard extends HTMLElement {
         content: '';
         position: absolute;
         inset: 0;
-        background: radial-gradient(circle, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 45%, rgba(255,255,255,1) 55%, rgba(255,255,255,0) 100%) repeat center/contain;
-        transform: scale(2) translate(var(--gloss-x, 0), var(--gloss-y, 0));
+        background: radial-gradient(circle, rgba(255,255,255,0) 0%, rgba(255,255,255,0.75) 50%, rgba(255,255,255,0) 100%) repeat center/contain;
         mix-blend-mode: overlay;
+        animation: gloss 20s infinite;
+      }
+
+      @keyframes gloss {
+        0% { transform: scale(10) translate(-40%, -25%) rotate(0); }
+        50% { transform: scale(10) translate(40%, -25%) rotate(-36deg) }
+        100% { transform: scale(10) translate(-40%, -25%) rotate(0); }
       }
 
       span {
@@ -137,9 +127,13 @@ class ScratchCard extends HTMLElement {
     return this.getAttribute('scratch-word');
   }
 
+  get scratchSize() {
+    return this.getAttribute('scratch-size') ?? 2;
+  }
+
   /** @param { MouseEvent } e  */
   draw(x, y) {   
-    this.ctx.lineWidth = Math.floor(Math.random() * (7 - 4) + 4);
+    this.ctx.lineWidth = Math.floor(Math.random() * ((this.scratchSize + 1) - (this.scratchSize - 1)) + (this.scratchSize - 1));
     this.ctx.shadowColor = "white";
     this.ctx.shadowBlur = "2";
 
@@ -151,14 +145,14 @@ class ScratchCard extends HTMLElement {
     for (let offset = 0; offset < length; offset += 5) {
       const p = vec.multiply(offset).add(this.pointer.x, this.pointer.y);
       
-      const r = () => (-0.5 + Math.random()) * (this.ctx.lineWidth + 15);
+      const r = () => (-0.5 + Math.random()) * (this.ctx.lineWidth + 10);
     
       this.ctx.beginPath();
       this.ctx.globalCompositeOperation = 'destination-out';
 
       this.ctx.moveTo(p.x + r(), p.y + r());
 
-      for( let i = 0; i < 50; i++ ) {
+      for( let i = 0; i < 10; i++ ) {
         this.ctx.lineTo(p.x + r(), p.y + r());
       }
       
